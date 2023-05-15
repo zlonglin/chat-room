@@ -1,0 +1,9 @@
+
+# 数据库公共配置
+[redis]
+address = "127.0.0.1:6379"
+password = ""
+pool_size = 50
+min_idle = 10
+idle_timeout = "120s"
+db_number = 1

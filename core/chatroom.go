@@ -1,12 +1,16 @@
 package core
 
 import (
+	"chatroom/cache"
 	"container/list"
+	"context"
+	"encoding/json"
+
 	"github.com/google/uuid"
 )
 
 // 保存历史消息的条数
-const archiveSize = 20
+const archiveSize = 10000
 const chanSize = 10
 
 const msgJoin = "[加入房间]"
@@ -37,9 +41,21 @@ func NewRoom() *Room {
 		leaveChn: make(chan uid, chanSize),
 	}
 
-	go r.Serve()
-
 	return r
+}
+
+func (r *Room) Start() {
+	if cache.Redis() != nil {
+		msgs := cache.Redis().LRange(context.Background(), "msg", 0, -1).Val()
+		for _, msg := range msgs {
+			event := Event{}
+			if err := json.Unmarshal([]byte(msg), &event); err == nil {
+				r.archive.PushBack(event)
+			}
+		}
+	}
+
+	go r.Serve()
 }
 
 // 用来向聊天室发送用户消息
@@ -116,6 +132,14 @@ func (r *Room) Serve() {
 				r.archive.Remove(r.archive.Front())
 			}
 			r.archive.PushBack(event)
+			if cache.Redis() != nil {
+				if by, err := json.Marshal(event); err == nil {
+					cache.Redis().RPush(context.Background(), "msg", by)
+					if cache.Redis().LLen(context.Background(), "msg").Val() > archiveSize {
+						cache.Redis().LPop(context.Background(), "msg")
+					}
+				}
+			}
 		// 用户退出房间
 		case k := <-r.leaveChn:
 			if _, ok := r.users[k]; ok {

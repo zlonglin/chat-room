@@ -2,12 +2,15 @@ package server
 
 import (
 	"chatroom/core"
+
 	"github.com/gin-gonic/gin"
 )
 
 var Room = core.NewRoom()
 
 func NewServer() *gin.Engine {
+	Room.Start()
+
 	s := gin.Default()
 	// static files
 	s.Static("/static", "./static")
